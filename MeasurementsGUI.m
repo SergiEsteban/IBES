@@ -296,7 +296,7 @@ function ExportButton_Callback(hObject, eventdata, handles)
 global data
 filter = {'*.csv;*.xlsx', 'Supported file types (*.csv, *.xlsx)'; '*.*','All files (*.*)'};
 [file, path] = uiputfile(filter, 'Export ECG', 'ECG measurement.csv');
-writematrix(data, [file, path]);
+csvwrite([file, path], data);
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported data to: ', file]);
 
 
