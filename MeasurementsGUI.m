@@ -61,8 +61,9 @@ global DEBUG_MODE
 DEBUG_MODE = 1;
 
 % -- Default Values 
-global SamplingRate mac ECGChannel PulseChannel analogChannels nSamples nSamplesSelection
+global SamplingRate mac ECGChannel PulseChannel analogChannels nSamples nSamplesSelection dataProcessed
 
+dataProcessed       = 0;
 SamplingRate        = 100;              % Hz
 mac                 = '98D371FD61F2';   % Bitalino MAC address
 ECGChannel          = 1;                % AnalogChannel 2
@@ -84,6 +85,7 @@ handles.PulseAxes.Visible   = 'off'; cla(handles.PulseAxes);
 
 handles.ExportButton.Enable = 'off';
 handles.ProcessButton.Enable= 'off';
+handles.Filter.Visible      = 'off';
 
 handles.Logger.String = "";
 LogTrace(handles, '', ['LogSession: ', datestr(now, 'dd/MM/yyyy')]);
@@ -138,9 +140,9 @@ contents    = cellstr(get(hObject,'String'));
 Fs          = contents{get(hObject,'Value')};
 global SamplingRate
 % Cheack if the contained value has changed
-if SamplingRate ~= str2num(Fs)
+if SamplingRate ~= str2double(Fs)
     % Update Sampling Frequency (user input)
-    SamplingRate = str2num(Fs);
+    SamplingRate = str2double(Fs);
     LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['SamplingFrequency updated to ', num2str(Fs), ' Hz']);
 end
 % --- Executes during object creation, after setting all properties.
@@ -170,7 +172,7 @@ if nSamplesSelection ~= selectionIdx
     % Update displaying number according to the current mode
     if selectionIdx == 1, handles.NumberOfSamples.String = num2str(nSamples/SamplingRate);
     else 
-        nSamples = SamplingRate*str2num(handles.NumberOfSamples.String);
+        nSamples = SamplingRate*str2double(handles.NumberOfSamples.String);
         handles.NumberOfSamples.String = num2str(nSamples);
     end
     % Update mode selected (user input)
@@ -199,8 +201,8 @@ global nSamples SamplingRate
 contents = cellstr(get(handles.NSamplesPopUp, 'String'));
 selectionIdx = find(ismember(contents, contents{get(handles.NSamplesPopUp,'Value')}));
 % Get corresponding number of samples independently of the mode
-if selectionIdx == 1, samples = SamplingRate*str2num(samples);
-else, samples = str2num(samples); end
+if selectionIdx == 1, samples = SamplingRate*str2double(samples);
+else, samples = str2double(samples); end
 % Check if Number of Samples has changed
 if nSamples ~= samples
     % Update Number of Samples (user input)
@@ -343,8 +345,9 @@ end
 %close connection
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Closing Bitalino connection...']);
 bit.close();
-handles.ExportButton.Enable = 'on';
-handles.ProcessButton.Enable = 'on';
+handles.ExportButton.Enable     = 'on';
+handles.ProcessButton.Enable    = 'on';
+handles.Filter.Visible          = 'on';
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['System ready to proceed']);
 
 
@@ -357,21 +360,25 @@ function ExportButton_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-global data dataHeader
-filter = {'*.csv;*.xlsx', 'Supported file types (*.csv, *.xlsx)'};
-[file, path, idx] = uiputfile(filter, 'Export ECG', 'ECG measurement.csv');
-if idx == 0, return; end
-if ~strcmp('.csv', file(end-3:end)), file = [file, '.csv']; end
+global data dataHeader dataProcessed
+if dataProcessed == 0
+    filter = {'*.csv;*.xlsx', 'Supported file types (*.csv, *.xlsx)'};
+    [file, path, idx] = uiputfile(filter, 'Export ECG', 'ECG measurement.csv');
+    if idx == 0, return; end
+    if ~strcmp('.csv', file(end-3:end)), file = [file, '.csv']; end
 
-dataHeader = strjoin(dataHeader,';');
-% Write header to file
-fid = fopen([path,file],'w'); 
-fprintf(fid,'%s\n',dataHeader);
-fclose(fid);
-%write data to end of file
-dlmwrite([path,file], data, '-append', 'delimiter',';');
-LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported data to: ', file]);
-
+    dataHeader = strjoin(dataHeader,';');
+    % Write header to file
+    fid = fopen([path,file],'w'); 
+    fprintf(fid,'%s\n',dataHeader);
+    fclose(fid);
+    %write data to end of file
+    dlmwrite([path,file], data, '-append', 'delimiter',';');
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported data to: ', file]);
+else
+   %%%%%%%%%%%%%%%%%%%%%%%%-------------------%%%%%%%%%%%%%%%%%%%%%%%%%
+   %%% TODO: export filtered data: .csv, .png, RESULTS .txt
+end
 %%%%%%%%%%%%%%%%%%%%%%%%%%% Importing Features %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % --- Executes on button press in ImportButton.
@@ -394,8 +401,32 @@ if ~isempty(dataTable.Properties.VariableDescriptions), dataHeader = dataTable.P
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Imported data contains: ', strjoin(dataHeader, ',')]);
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting imported data']);
 PlotCurrentData(handles);
+handles.ProcessButton.Enable = 'on';
+handles.Filter.Visible       = 'on';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%% Processing Features %%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% --- Executes on selection change in Filter.
+function Filter_Callback(hObject, eventdata, handles)
+% hObject    handle to Filter (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+contents = cellstr(get(hObject,'String'));
+filterSelected = contents{get(hObject,'Value')};
+LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Selected ', filterSelected, ' filter']);
+
+% --- Executes during object creation, after setting all properties.
+function Filter_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Filter (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
 
 % --- Executes on button press in ProcessButton.
 function ProcessButton_Callback(hObject, eventdata, handles)
@@ -403,23 +434,118 @@ function ProcessButton_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-global data dataHeader DEBUG_MODE
+global data dataHeader SamplingRate
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Preparing data to process']);
 if and(size(data,2)~=length(dataHeader), length(dataHeader)<3), LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Data not processed because an error']); end
 
-ecg = []; pulse = [];
+global ecgResult pulseResult time
+global ecgQ ecgR ecgS
+global pulsePeak
+ecgResult = []; pulseResult = []; time = [];
+ecgQ = []; ecgR = []; ecgS = [];
+pulsePeak = [];
 
-if DEBUG_MODE
-   if ismember('Sin(x)',dataHeader), ecg = data(:,find(strcmp('Sin(x)',dataHeader))); end
-   if ismember('Cos(x)',dataHeader), pulse = data(:,find(strcmp('Cos(x)',dataHeader)));end       
-else
-   if ismember('ECG',dataHeader), ecg = data(:,find(strcmp('ECG',dataHeader))); end
-   if ismember('Pulse',dataHeader), pulse = data(:,find(strcmp('Pulse',dataHeader)));end       
+f1 = 2; f2 = 30;                    % Filter cut-off frequencies
+Ti = 10;                            % First processing instant
+delay = floor(SamplingRate*Ti);     %
+wq = floor(0.07*SamplingRate);      % Window size for Q detection
+ws = floor(0.07*SamplingRate);      % Window size for S detection
+
+if ismember('time', dataHeader), time = data(:,strcmp('time', dataHeader)); time = time(:)'; else, return; end
+
+selectedFilter = handles.Filter.Value; % 1: None, 2: Butterworth, 3: Eliptic
+if ismember('ECG',dataHeader)
+    ecgResult = data(:,strcmp('ECG',dataHeader)); ecgResult = ecgResult(:)';
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['ECG data found. Processing...']);
+    % Filtered data
+    switch selectedFilter
+        case 2
+            ecgResult = butterworth_filter(ecgResult,f1,f2,SamplingRate);
+        case 3
+            ecgResult = elliptic_filter(ecgResult,f1,f2,SamplingRate);
+        otherwise            
+    end
+
+    % QRS detection algorithm for ECG
+    [R_amp,R_pos,~]     = pan_tompkin_revised(ecgResult(delay:end),SamplingRate);
+    R_pos               = R_pos + delay-1;
+    [Q_pos, S_Pos]       = find_Q_S(ecgResult,R_pos,wq,ws);
+    ecgQ = time(Q_pos); ecgR = time(R_pos); ecgS = time(S_Pos);
+end
+if ismember('Pulse',dataHeader)
+    pulseResult = data(:,strcmp('Pulse',dataHeader)); pulseResult = pulseResult(:)';
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Pulse data found. Processing...']);
+    % Filtered data
+    switch selectedFilter
+        case 2 
+            pulseResult = butterworth_filter(pulseResult,f1,f2,SamplingRate);
+        case 3
+            pulseResult = elliptic_filter(pulseResult,f1,f2,SamplingRate);
+        otherwise
+    end
+    
+    % Peak detector of Pulse signals
+    [Pulse_amp,Pulse_pos,~]     = pan_tompkin_revised(pulseResult(delay:end),SamplingRate);    
+    Pulse_pos                   = Pulse_pos + delay-1; 
+    pulsePeak = time(Pulse_pos);
 end
 
+if isempty(ecgResult) && isempty(pulseResult), LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['No data found!']); return; end
 
-
-
+% Plot results
+if ~isempty(ecgResult)
+    if ~isempty(pulseResult)
+        % Both signals are displayed
+        cla(handles.CommonAxes); cla(handles.ECGAxes); cla(handles.PulseAxes);
+        handles.CommonAxes.Visible = 'off'; handles.ECGAxes.Visible = 'on'; handles.Pulse.Visible = 'on';
+        axes(handles.ECGAxes);
+        plot(time, ecgResult); grid on; hold on; ylabel('ECG processed');
+        title('Processed data');
+        plot(time(R_pos),ecgResult(R_pos),'vr'); plot(time(Q_pos),ecgResult(Q_pos),'>b'); plot(time(S_Pos),ecgResult(S_Pos),'<b');
+        ymin = min(ecgResult(delay:floor(end-SamplingRate*5))); ymax = max(ecgResult(delay:floor(end-SamplingRate*5)));
+        ymin = ymin-abs(ymax-ymin)*0.1; ymax = ymax+abs(ymax-ymin)*0.1;
+        ylim([ymin ymax]);
+        hold off;
+        legend('ECG filtered','R peaks','Q peaks','S peaks');
+        LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['ECG plotted']);
+        axes(handles.PulseAxes);
+        plot(time, pulseResult); grid on; hold on; xlabel('time [s]'); ylabel('Pulse processed');
+        plot(time(Pulse_pos),pulseResult(Pulse_pos),'vr');
+        ymin = min(pulseResult(delay:floor(end-SamplingRate*5))); ymax = max(pulseResult(delay:floor(end-SamplingRate*5)));
+        ymin = ymin-abs(ymax-ymin)*0.1; ymax = ymax+abs(ymax-ymin)*0.1;
+        ylim([ymin ymax]);
+        hold off;
+        legend('Pulse filtered','Pulse peaks');
+        LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Pulse plotted']);
+    else
+        cla(handles.CommonAxes); cla(handles.ECGAxes); cla(handles.PulseAxes);
+        handles.CommonAxes.Visible = 'on'; handles.ECGAxes.Visible = 'off'; handles.Pulse.Visible = 'off';
+        axes(handles.CommonAxes);
+        plot(time, ecgResult); grid on; hold on; ylabel('ECG processed'); xlabel('time [s]');
+        title('Processed data');
+        plot(time(R_pos),ecgResult(R_pos),'vr'); plot(time(Q_pos),ecgResult(Q_pos),'>b'); plot(time(S_Pos),ecgResult(S_Pos),'<b');
+        ymin = min(ecgResult(delay:floor(end-SamplingRate*5))); ymax = max(ecgResult(delay:floor(end-SamplingRate*5)));
+        ymin = ymin-abs(ymax-ymin)*0.1; ymax = ymax+abs(ymax-ymin)*0.1;
+        ylim([ymin ymax]);
+        hold off;
+        legend('ECG filtered','R peaks','Q peaks','S peaks');
+        LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['ECG plotted']);
+    end
+else
+    cla(handles.CommonAxes); cla(handles.ECGAxes); cla(handles.PulseAxes);
+    handles.CommonAxes.Visible = 'on'; handles.ECGAxes.Visible = 'off'; handles.Pulse.Visible = 'off';
+    axes(handles.CommonAxes);
+    plot(time, pulseResult); grid on; hold on; xlabel('time [s]'); ylabel('Pulse processed');
+    plot(time(Pulse_pos),pulseResult(Pulse_pos),'vr');
+    ymin = min(pulseResult(delay:floor(end-SamplingRate*5))); ymax = max(pulseResult(delay:floor(end-SamplingRate*5)));
+    ymin = ymin-abs(ymax-ymin)*0.1; ymax = ymax+abs(ymax-ymin)*0.1;
+    ylim([ymin ymax]);
+    hold off;
+    legend('Pulse filtered','Pulse peaks');
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Pulse plotted']);    
+end
+% Extracting signal features
+ExtractSignalFeatures(handles);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%% Other functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -431,18 +557,16 @@ set(handles.Logger,'String', txt);
 function PlotCurrentData(handles)
 % Plot channel acquired
 cla(handles.CommonAxes); cla(handles.ECGAxes); cla(handles.PulseAxes);
-global data dataHeader SamplingRate DEBUG_MODE
+global data dataHeader SamplingRate 
 
-time = data(:,find(strcmp(dataHeader,'time')));
-SamplingRate = data(1, find(strcmp(dataHeader,'Sampling Frequency')));
+time = data(:,strcmp(dataHeader,'time'));
+SamplingRate = data(1, strcmp(dataHeader,'Sampling Frequency'));
 if length(dataHeader) > 3
    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting ECG and Pulse waves']);
    handles.CommonAxes.Visible = 'off'; handles.ECGAxes.Visible = 'on'; handles.PulseAxes.Visible = 'on';
    axes(handles.ECGAxes);
-   %if DEBUG_MODE, ecg = data(:,find(strcmp(dataHeader, 'Sin(x)'))); else
-   ecg = data(:,find(strcmp(dataHeader,'ECG'))); %end
-   %if DEBUG_MODE, pulse = data(:,find(strcmp(dataHeader, 'Cos(x)')));else
-       pulse = data(:,find(strcmp(dataHeader,'Pulse'))); %end
+   ecg = data(:,strcmp(dataHeader,'ECG')); 
+   pulse = data(:,strcmp(dataHeader,'Pulse')); 
    plot(time(:), ecg(:)); grid on; ylabel('ECG meas.');
    title(['Imported Data (SamplingFrequency: ', num2str(SamplingRate),' Hz)']);
    axes(handles.PulseAxes);
@@ -452,12 +576,67 @@ elseif length(dataHeader) >2
     axes(handles.CommonAxes);    
     if ismember('ECG',dataHeader)     
         LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting ECG wave']);           
-        ecg = data(:,find(strcmp(dataHeader,'ECG')));
+        ecg = data(:,strcmp(dataHeader,'ECG'));
         plot(time(:), ecg(:)); grid on; xlabel('time [s]'); ylabel('ECG meas.');
     else
         LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting Pulse wave']);            
-        pulse = data(:,find(strcmp(dataHeader,'Pulse')));
+        pulse = data(:,strcmp(dataHeader,'Pulse'));
         plot(time(:), pulse(:)); grid on; xlabel('time [s]'); ylabel('Pulse meas.');
     end
-        
-end 
+end  
+function ExtractSignalFeatures(handles)
+
+global dataHeader SamplingRate
+
+global ecgResult pulseResult time
+global ecgQ ecgR ecgS
+global pulsePeak
+
+global ecgHeartRate ecgHeartRate20sAvg
+global pulseHeartRate pulseHeartRate20sAvg
+global arrivalTime arrivalTimeAvg
+ecgHeartRate    = []; ecgHeartRate20sAvg = -1;
+pulseHeartRate  = []; pulseHeartRate20sAvg = -1;
+arrivalTime     = []; arrivalTimeAvg = -1;
+
+% Beat rate calculation QRS
+if ismember('ECG', dataHeader)
+    ecgHeartRate = 1./diff(ecgR); 
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), 'Beat rate calculated from ECG');
+    
+    ti = ecgR(1);    
+    [~,nf] = min(abs(time-(ti+20)));
+    tf = time(nf);
+    nRi = 0;
+    [~,nRf] = min(abs(ecgR-tf));
+    
+    if ecgR(nRf)>tf, nRf = nRf-1; end    
+    ecgHeartRate20sAvg = abs( (nRf-nRi)/(tf-ti) );    
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Beat rate average calculated from ECG (',num2str(ecgHeartRate20sAvg),' bps)']);
+
+end
+% Beat rate calculation Pulse Peak
+if ismember('Pulse', dataHeader)
+    pulseHeartRate = 1./diff(pulsePeak); 
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), 'Beat rate calculated from Pulse');
+    
+    ti = pulsePeak(1);    
+    [~,nf] = min(abs(time-(ti+20)));
+    tf = time(nf);
+    nRi = 0;
+    [~,nRf] = min(abs(pulsePeak-tf));
+    
+    if pulsePeak(nRf)>tf, nRf = nRf-1; end    
+    pulseHeartRate20sAvg = abs( (nRf-nRi)/(tf-ti) ); 
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Beat rate average calculated from Pulse (',num2str(pulseHeartRate20sAvg), ' bps)']);
+end
+% Arrival time
+if ismember('ECG', dataHeader) && ismember('Pulse', dataHeader)
+    Rs = ecgR(ecgR<pulsePeak(end));
+    Ps = pulsePeak(pulsePeak>ecgR(1));    
+    if length(Rs) ~= length(Ps), LogTrace(handles, datestr(now,'[hh:mm:ss]'), 'Pulse Peaks and ECG R Peaks array have different lengths'); return;end
+    arrivalTime = abs(Ps-Rs);
+    arrivalTimeAvg = mean(arrivalTime);
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Arrival time average calculated from ECG and Pulse (',num2str(arrivalTimeAvg*1e3), ' ms)']);
+    
+end
