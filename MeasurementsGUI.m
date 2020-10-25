@@ -100,8 +100,6 @@ function varargout = MeasurementsGUI_OutputFcn(hObject, eventdata, handles)
 
 % Get default command line output from handles structure
 varargout{1} = handles.output;
-% --- Executes on selection change in SamplingFrequency.
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%% Measurement Configuration %%%%%%%%%%%%%%%%%%%%%%%%
@@ -376,8 +374,94 @@ if dataProcessed == 0
     dlmwrite([path,file], data, '-append', 'delimiter',';');
     LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported data to: ', file]);
 else
-   %%%%%%%%%%%%%%%%%%%%%%%%-------------------%%%%%%%%%%%%%%%%%%%%%%%%%
-   %%% TODO: export filtered data: .csv, .png, RESULTS .txt
+    % Exporting filtered data
+    filter = {'*.csv;*.xlsx', 'Supported file types (*.csv, *.xlsx)'};
+    [file, path, idx] = uiputfile(filter, 'Export filtered data to CSV', 'Filtered data.csv');
+    if idx == 0, return; end
+    if ~strcmp('.csv', file(end-3:end)), file = [file, '.csv']; end
+    
+    dataHeader = strjoin(dataHeader,';');
+    % Write header to file
+    fid = fopen([path,file],'w');
+    fprintf(fid,'%s\n',dataHeader);
+    fclose(fid);
+    %write data to end of file
+    dlmwrite([path,file], data, '-append', 'delimiter',';');
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported filtered data to: ', file]);
+    
+    % Exporting figures
+    if ismember('ECG', dataHeader) 
+        fontSize = 12;
+        if ismember('Pulse', dataHeader)
+            % Obtain ECG plot
+            f_ecg = figure('units', 'normalized', 'outerposition',[0,0,1,1], 'Visible', 'off');
+            f_ecg_ax = copyobj(handles.ECGAxes, f_ecg);
+            xlabel('time [s]');
+            InSet = get(f_ecg_ax, 'TightInset');
+            set(f_ecg_ax, 'Position', [InSet(1:2), 1-InSet(1)-InSet(3), 1-InSet(2)-InSet(4)])
+
+            filter = {'*.png', 'Supported file types (*png)'};
+            [file, path, idx] = uiputfile(filter, 'Export filtered ECG to PNG', 'ECG filtered.png');
+            if idx == 0, return; end
+            if ~strcmp('.png', file(end-3:end)), file = [file, '.png']; end
+            set(f_ecg_ax,'Fontsize',fontSize)
+            saveas(f_ecg, [path,file]);
+            LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported filtered data to: ', file]);
+
+
+            % Obtain Pulse plot
+            f_pulse = figure('units', 'normalized', 'outerposition',[0,0,1,1], 'Visible', 'off');
+            f_pulse_ax = copyobj(handles.PulseAxes, f_pulse);
+            xlabel('time [s]');
+            InSet = get(f_pulse_ax, 'TightInset');
+            set(f_pulse_ax, 'Position', [InSet(1:2), 1-InSet(1)-InSet(3), 1-InSet(2)-InSet(4)])
+
+            filter = {'*.png', 'Supported file types (*png)'};
+            [file, path, idx] = uiputfile(filter, 'Export filtered Pulse to PNG', 'Pulse filtered.png');
+            if idx == 0, return; end
+            if ~strcmp('.png', file(end-3:end)), file = [file, '.png']; end
+            set(f_pulse_ax,'Fontsize',fontSize)
+            saveas(f_pulse, [path,file]);
+            LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported filtered data to: ', file]);
+        else
+             % Obtain ECG plot
+            f_ecg = figure('units', 'normalized', 'outerposition',[0,0,1,1], 'Visible', 'off');
+            f_ecg_ax = copyobj(handles.CommonAxes, f_ecg);
+            xlabel('time [s]');
+            InSet = get(f_ecg_ax, 'TightInset');
+            set(f_ecg_ax, 'Position', [InSet(1:2), 1-InSet(1)-InSet(3), 1-InSet(2)-InSet(4)])
+
+            filter = {'*.png', 'Supported file types (*png)'};
+            [file, path, idx] = uiputfile(filter, 'Export filtered ECG to PNG', 'ECG filtered.png');
+            if idx == 0, return; end
+            if ~strcmp('.png', file(end-3:end)), file = [file, '.png']; end
+            set(f_ecg_ax,'Fontsize',fontSize)
+            saveas(f_ecg, [path,file]);
+            LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported filtered data to: ', file]);
+        end
+    else
+        % Obtain Pulse plot
+        f_pulse = figure('units', 'normalized', 'outerposition',[0,0,1,1], 'Visible', 'off');
+        f_pulse_ax = copyobj(handles.CommonAxes, f_pulse);
+        xlabel('time [s]');
+        InSet = get(f_pulse_ax, 'TightInset');
+        set(f_pulse_ax, 'Position', [InSet(1:2), 1-InSet(1)-InSet(3), 1-InSet(2)-InSet(4)])
+
+        filter = {'*.png', 'Supported file types (*png)'};
+        [file, path, idx] = uiputfile(filter, 'Export filtered Pulse to PNG', 'Pulse filtered.png');
+        if idx == 0, return; end
+        if ~strcmp('.png', file(end-3:end)), file = [file, '.png']; end
+        set(f_pulse_ax,'Fontsize',fontSize)
+        saveas(f_pulse, [path,file]);
+        LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported filtered data to: ', file]);
+    end       
+    
+    % Exporting signals features
+    %%%%%%%%%%%%%%%%% ------------------ %%%%%%%%%%%%%%%%%
+    %%% TODO: create a .txt file with signal features!
+
+    % Clear processed variables
+    dataProcessed = 0;
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%% Importing Features %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -465,7 +549,7 @@ if ismember('ECG',dataHeader)
             ecgResult = elliptic_filter(ecgResult,f1,f2,SamplingRate);
         otherwise            
     end
-
+    data(:,strcmp('ECG',dataHeader)) = ecgResult(:);
     % QRS detection algorithm for ECG
     [R_amp,R_pos,~]     = pan_tompkin_revised(ecgResult(delay:end),SamplingRate);
     R_pos               = R_pos + delay-1;
@@ -483,7 +567,7 @@ if ismember('Pulse',dataHeader)
             pulseResult = elliptic_filter(pulseResult,f1,f2,SamplingRate);
         otherwise
     end
-    
+    data(:,strcmp('Pulse',dataHeader)) = pulseResult(:);
     % Peak detector of Pulse signals
     [Pulse_amp,Pulse_pos,~]     = pan_tompkin_revised(pulseResult(delay:end),SamplingRate);    
     Pulse_pos                   = Pulse_pos + delay-1; 
@@ -640,3 +724,15 @@ if ismember('ECG', dataHeader) && ismember('Pulse', dataHeader)
     LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Arrival time average calculated from ECG and Pulse (',num2str(arrivalTimeAvg*1e3), ' ms)']);
     
 end
+handles.ExportButton.Enable = 'on';
+global dataProcessed
+dataProcessed = 1;
+
+
+% --- Executes during object deletion, before destroying properties.
+function figure1_DeleteFcn(hObject, eventdata, handles)
+% hObject    handle to figure1 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+clc; clear all; close all;
