@@ -358,7 +358,7 @@ function ExportButton_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-global data dataHeader dataProcessed
+global data dataResult dataHeader dataProcessed
 if dataProcessed == 0
     filter = {'*.csv;*.xlsx', 'Supported file types (*.csv, *.xlsx)'};
     [file, path, idx] = uiputfile(filter, 'Export ECG', 'ECG measurement.csv');
@@ -386,7 +386,7 @@ else
     fprintf(fid,'%s\n',dataHeader);
     fclose(fid);
     %write data to end of file
-    dlmwrite([path,file], data, '-append', 'delimiter',';');
+    dlmwrite([path,file], dataResult, '-append', 'delimiter',';');
     LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported filtered data to: ', file]);
     
     % Exporting figures
@@ -518,11 +518,12 @@ function ProcessButton_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-global data dataHeader SamplingRate
+global data dataResult dataHeader SamplingRate
+dataResult = data;
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Preparing data to process']);
 if and(size(data,2)~=length(dataHeader), length(dataHeader)<3), LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Data not processed because an error']); end
 
-global ecgResult pulseResult time
+global ecgResult pulseResult  time
 global ecgQ ecgR ecgS
 global pulsePeak
 ecgResult = []; pulseResult = []; time = [];
@@ -549,7 +550,7 @@ if ismember('ECG',dataHeader)
             ecgResult = elliptic_filter(ecgResult,f1,f2,SamplingRate);
         otherwise            
     end
-    data(:,strcmp('ECG',dataHeader)) = ecgResult(:);
+     dataResult(:,strcmp('ECG',dataHeader)) = ecgResult(:);
     % QRS detection algorithm for ECG
     [R_amp,R_pos,~]     = pan_tompkin_revised(ecgResult(delay:end),SamplingRate);
     R_pos               = R_pos + delay-1;
@@ -567,7 +568,7 @@ if ismember('Pulse',dataHeader)
             pulseResult = elliptic_filter(pulseResult,f1,f2,SamplingRate);
         otherwise
     end
-    data(:,strcmp('Pulse',dataHeader)) = pulseResult(:);
+     dataResult(:,strcmp('Pulse',dataHeader)) = pulseResult(:);
     % Peak detector of Pulse signals
     [Pulse_amp,Pulse_pos,~]     = pan_tompkin_revised(pulseResult(delay:end),SamplingRate);    
     Pulse_pos                   = Pulse_pos + delay-1; 
