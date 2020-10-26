@@ -1,4 +1,4 @@
-time;Sampling Frequency;ECG
+time;SamplingFrequency;ECG
 0;100;473
 0.01;100;479
 0.02;100;482
