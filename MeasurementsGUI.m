@@ -274,7 +274,7 @@ if or(bit.connection , DEBUG_MODE)
 
     if DEBUG_MODE
         % Mock behavior while DEBUG MODE
-        dataHeader = {'time', 'Sampling Frequency'};
+        dataHeader = {'time', 'SamplingFrequency'};
         data = [time(:), SamplingRate*ones(nSamples,1)];
         if ismember(ECGChannel, filterChannels)
             ecg = sin(2*pi/time(end)*time(:)); 
@@ -303,7 +303,7 @@ if or(bit.connection , DEBUG_MODE)
         % Format read data
         global dataHeader
         data = [time(:), SamplingRate*ones(nSamples,1)];
-        dataHeader = {'time', 'Sampling Frequency'};
+        dataHeader = {'time', 'SamplingFrequency'};
         if ismember(ECGChannel,analogChannels)
             ecg                 = readData(6,:); 
             data                = [data, ecg(:)];
@@ -480,7 +480,7 @@ global data dataHeader
 dataTable = readtable([path,file]);
 data = dataTable{:,:};
 dataHeader = dataTable.Properties.VariableNames;
-if ~isempty(dataTable.Properties.VariableDescriptions), dataHeader = dataTable.Properties.VariableDescriptions; end
+% if ~isempty(dataTable.Properties.VariableDescriptions), dataHeader = dataTable.Properties.VariableDescriptions; end
 
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Imported data contains: ', strjoin(dataHeader, ',')]);
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting imported data']);
@@ -645,7 +645,7 @@ cla(handles.CommonAxes); cla(handles.ECGAxes); cla(handles.PulseAxes);
 global data dataHeader SamplingRate 
 
 time = data(:,strcmp(dataHeader,'time'));
-SamplingRate = data(1, strcmp(dataHeader,'Sampling Frequency'));
+SamplingRate = data(1, strcmp(dataHeader,'SamplingFrequency'));
 if length(dataHeader) > 3
    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting ECG and Pulse waves']);
    handles.CommonAxes.Visible = 'off'; handles.ECGAxes.Visible = 'on'; handles.PulseAxes.Visible = 'on';
