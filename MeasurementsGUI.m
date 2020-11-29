@@ -267,12 +267,14 @@ LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Bitalino instance created']);
 bit = bit.open(mac,SamplingRate);
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Opening BT connection instance']);
 
-global DEBUG_MODE
+global DEBUG_MODE;
+DEBUG_MODE = false;
 if or(bit.connection , DEBUG_MODE)
     time = linspace(0, nSamples/SamplingRate, nSamples);
     global data dataHeader
 
     if DEBUG_MODE
+        LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Entering in debug mode']);
         % Mock behavior while DEBUG MODE
         dataHeader = {'time', 'SamplingFrequency'};
         data = [time(:), SamplingRate*ones(nSamples,1)];
@@ -301,7 +303,7 @@ if or(bit.connection , DEBUG_MODE)
         bit.stop();
 
         % Format read data
-        global dataHeader
+        %global dataHeader
         data = [time(:), SamplingRate*ones(nSamples,1)];
         dataHeader = {'time', 'SamplingFrequency'};
         if ismember(ECGChannel,analogChannels)
