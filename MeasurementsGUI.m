@@ -308,12 +308,12 @@ if or(bit.connection , DEBUG_MODE)
         dataHeader = {'time', 'SamplingFrequency'};
         if ismember(ECGChannel,analogChannels)
             ecg                 = readData(6,:); 
-            data                = [data, ecg(:)];
+            data                = [data, (ecg(:))];
             dataHeader{end+1}   = 'ECG';
         end
         if ismember(PulseChannel, analogChannels)
             pulse               = readData(7,:); 
-            data                = [data, pulse(:)]; 
+            data                = [data, (pulse(:))]; 
             dataHeader{end+1}   = 'Pulse';
         end 
     end
@@ -323,18 +323,18 @@ if or(bit.connection , DEBUG_MODE)
            LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting ECG and Pulse waves']);
            handles.CommonAxes.Visible = 'off'; handles.ECGAxes.Visible = 'on'; handles.PulseAxes.Visible = 'on';
            axes(handles.ECGAxes);
-           plot(time, ecg); grid on; ylabel('ECG meas.');
+           plot(time,  (ecg)); grid on; ylabel('ECG meas. ');
            axes(handles.PulseAxes);
-           plot(time, pulse); grid on; ylabel('Pulse meas.'); xlabel('time [s]');
+           plot(time,  (pulse)); grid on; ylabel('Pulse meas. '); xlabel('time [s]');
         else
             handles.CommonAxes.Visible = 'on'; handles.ECGAxes.Visible = 'off'; handles.PulseAxes.Visible = 'off';
             axes(handles.CommonAxes);
             if ismember(ECGChannel,analogChannels)     
                 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting ECG wave']);
-                plot(time, ecg); grid on; xlabel('time [s]'); ylabel('ECG meas.');
+                plot(time,  (ecg)); grid on; xlabel('time [s]'); ylabel('ECG meas. ');
             else
                 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting Pulse wave']);
-                plot(handles.CommonAxes, time, pulse); grid on; xlabel('time [s]'); ylabel('Pulse meas.');
+                plot(handles.CommonAxes, time, pulse); grid on; xlabel('time [s]'); ylabel('Pulse meas. ');
             end
         end 
 else
@@ -481,8 +481,13 @@ LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Imported data from: ', file]);
 global data dataHeader
 dataTable = readtable([path,file]);
 data = dataTable{:,:};
+sz = size(data);
+for n = 3:sz(2)
+    if max(data(:,n)) > 5
+        data(:,n) = (data(:,n));
+    end
+end
 dataHeader = dataTable.Properties.VariableNames;
-% if ~isempty(dataTable.Properties.VariableDescriptions), dataHeader = dataTable.Properties.VariableDescriptions; end
 
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Imported data contains: ', strjoin(dataHeader, ',')]);
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting imported data']);
@@ -532,8 +537,8 @@ ecgResult = []; pulseResult = []; time = [];
 ecgQ = []; ecgR = []; ecgS = [];
 pulsePeak = [];
 
-f1 = 2; f2 = 30;                    % Filter cut-off frequencies
-Ti = 10;                            % First processing instant
+f1 = 2; f2 = 12;                    % Filter cut-off frequencies
+Ti = 3;                             % First processing instant
 delay = floor(SamplingRate*Ti);     %
 wq = floor(0.07*SamplingRate);      % Window size for Q detection
 ws = floor(0.07*SamplingRate);      % Window size for S detection
@@ -586,19 +591,19 @@ if ~isempty(ecgResult)
         cla(handles.CommonAxes); cla(handles.ECGAxes); cla(handles.PulseAxes);
         handles.CommonAxes.Visible = 'off'; handles.ECGAxes.Visible = 'on'; handles.Pulse.Visible = 'on';
         axes(handles.ECGAxes);
-        plot(time, ecgResult); grid on; hold on; ylabel('ECG processed');
+        plot(time,  (ecgResult)); grid on; hold on; ylabel('ECG processed');
         title('Processed data');
-        plot(time(R_pos),ecgResult(R_pos),'vr'); plot(time(Q_pos),ecgResult(Q_pos),'>b'); plot(time(S_Pos),ecgResult(S_Pos),'<b');
-        ymin = min(ecgResult(delay:floor(end-SamplingRate*5))); ymax = max(ecgResult(delay:floor(end-SamplingRate*5)));
+        plot(time(R_pos), (ecgResult(R_pos)),'vr'); plot(time(Q_pos), (ecgResult(Q_pos)),'>b'); plot(time(S_Pos), (ecgResult(S_Pos)),'<b');
+        ymin = min( (ecgResult(delay:floor(end-SamplingRate*5)))); ymax = max( (ecgResult(delay:floor(end-SamplingRate*5))));
         ymin = ymin-abs(ymax-ymin)*0.1; ymax = ymax+abs(ymax-ymin)*0.1;
         ylim([ymin ymax]);
         hold off;
         legend('ECG filtered','R peaks','Q peaks','S peaks');
         LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['ECG plotted']);
         axes(handles.PulseAxes);
-        plot(time, pulseResult); grid on; hold on; xlabel('time [s]'); ylabel('Pulse processed');
-        plot(time(Pulse_pos),pulseResult(Pulse_pos),'vr');
-        ymin = min(pulseResult(delay:floor(end-SamplingRate*5))); ymax = max(pulseResult(delay:floor(end-SamplingRate*5)));
+        plot(time,  (pulseResult)); grid on; hold on; xlabel('time [s]'); ylabel('Pulse processed');
+        plot(time(Pulse_pos), (pulseResult(Pulse_pos)),'vr');
+        ymin = min( (pulseResult(delay:floor(end-SamplingRate*5)))); ymax = max( (pulseResult(delay:floor(end-SamplingRate*5))));
         ymin = ymin-abs(ymax-ymin)*0.1; ymax = ymax+abs(ymax-ymin)*0.1;
         ylim([ymin ymax]);
         hold off;
@@ -608,10 +613,10 @@ if ~isempty(ecgResult)
         cla(handles.CommonAxes); cla(handles.ECGAxes); cla(handles.PulseAxes);
         handles.CommonAxes.Visible = 'on'; handles.ECGAxes.Visible = 'off'; handles.Pulse.Visible = 'off';
         axes(handles.CommonAxes);
-        plot(time, ecgResult); grid on; hold on; ylabel('ECG processed'); xlabel('time [s]');
+        plot(time,  (ecgResult)); grid on; hold on; ylabel('ECG processed '); xlabel('time [s]');
         title('Processed data');
-        plot(time(R_pos),ecgResult(R_pos),'vr'); plot(time(Q_pos),ecgResult(Q_pos),'>b'); plot(time(S_Pos),ecgResult(S_Pos),'<b');
-        ymin = min(ecgResult(delay:floor(end-SamplingRate*5))); ymax = max(ecgResult(delay:floor(end-SamplingRate*5)));
+        plot(time(R_pos), (ecgResult(R_pos)),'vr'); plot(time(Q_pos), (ecgResult(Q_pos)),'>b'); plot(time(S_Pos), (ecgResult(S_Pos)),'<b');
+        ymin = min( (ecgResult(delay:floor(end-SamplingRate*5)))); ymax = max( (ecgResult(delay:floor(end-SamplingRate*5))));
         ymin = ymin-abs(ymax-ymin)*0.1; ymax = ymax+abs(ymax-ymin)*0.1;
         ylim([ymin ymax]);
         hold off;
@@ -622,9 +627,9 @@ else
     cla(handles.CommonAxes); cla(handles.ECGAxes); cla(handles.PulseAxes);
     handles.CommonAxes.Visible = 'on'; handles.ECGAxes.Visible = 'off'; handles.Pulse.Visible = 'off';
     axes(handles.CommonAxes);
-    plot(time, pulseResult); grid on; hold on; xlabel('time [s]'); ylabel('Pulse processed');
-    plot(time(Pulse_pos),pulseResult(Pulse_pos),'vr');
-    ymin = min(pulseResult(delay:floor(end-SamplingRate*5))); ymax = max(pulseResult(delay:floor(end-SamplingRate*5)));
+    plot(time,  (pulseResult)); grid on; hold on; xlabel('time [s]'); ylabel('Pulse processed ');
+    plot(time(Pulse_pos), (pulseResult(Pulse_pos)),'vr');
+    ymin = min( (pulseResult(delay:floor(end-SamplingRate*5)))); ymax = max( (pulseResult(delay:floor(end-SamplingRate*5))));
     ymin = ymin-abs(ymax-ymin)*0.1; ymax = ymax+abs(ymax-ymin)*0.1;
     ylim([ymin ymax]);
     hold off;
@@ -654,21 +659,21 @@ if length(dataHeader) > 3
    axes(handles.ECGAxes);
    ecg = data(:,strcmp(dataHeader,'ECG')); 
    pulse = data(:,strcmp(dataHeader,'Pulse')); 
-   plot(time(:), ecg(:)); grid on; ylabel('ECG meas.');
+   plot(time(:),  (ecg(:))); grid on; ylabel('ECG meas. ');
    title(['Imported Data (SamplingFrequency: ', num2str(SamplingRate),' Hz)']);
    axes(handles.PulseAxes);
-   plot(time(:), pulse(:)); grid on; ylabel('Pulse meas.'); xlabel('time [s]');
+   plot(time(:),  (pulse(:))); grid on; ylabel('Pulse meas. '); xlabel('time [s]');
 elseif length(dataHeader) >2
     handles.CommonAxes.Visible = 'on'; handles.ECGAxes.Visible = 'off'; handles.PulseAxes.Visible = 'off';
     axes(handles.CommonAxes);    
     if ismember('ECG',dataHeader)     
         LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting ECG wave']);           
         ecg = data(:,strcmp(dataHeader,'ECG'));
-        plot(time(:), ecg(:)); grid on; xlabel('time [s]'); ylabel('ECG meas.');
+        plot(time(:),  (ecg(:))); grid on; xlabel('time [s]'); ylabel('ECG meas. ');
     else
         LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting Pulse wave']);            
         pulse = data(:,strcmp(dataHeader,'Pulse'));
-        plot(time(:), pulse(:)); grid on; xlabel('time [s]'); ylabel('Pulse meas.');
+        plot(time(:),  (pulse(:))); grid on; xlabel('time [s]'); ylabel('Pulse meas. ');
     end
 end  
 function ExtractSignalFeatures(handles)
@@ -691,7 +696,7 @@ if ismember('ECG', dataHeader)
     ecgHeartRate = 1./diff(ecgR); 
     LogTrace(handles, datestr(now,'[hh:mm:ss]'), 'Beat rate calculated from ECG');
     
-    ti = ecgR(1);    
+    ti = ecgR(2);    
     [~,nf] = min(abs(time-(ti+20)));
     tf = time(nf);
     nRi = 0;
@@ -707,7 +712,7 @@ if ismember('Pulse', dataHeader)
     pulseHeartRate = 1./diff(pulsePeak); 
     LogTrace(handles, datestr(now,'[hh:mm:ss]'), 'Beat rate calculated from Pulse');
     
-    ti = pulsePeak(1);    
+    ti = pulsePeak(2);    
     [~,nf] = min(abs(time-(ti+20)));
     tf = time(nf);
     nRi = 0;

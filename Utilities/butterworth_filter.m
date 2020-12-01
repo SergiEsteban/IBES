@@ -13,9 +13,24 @@ match  = 'stopband';
 h  = fdesign.bandpass(Fstop1, Fpass1, Fpass2, Fstop2, Astop1, Apass, ...
                       Astop2, Fs);
 Hd = design(h, 'butter', 'MatchExactly', match);
-sz=size(signal);
-y=zeros(sz);
-for i=1:sz(1)
-    y(i,:)=filtfilt(Hd.sosMatrix,Hd.ScaleValues,signal(i,:));
+
+sz_original = size(signal);
+
+R=0.1; % 10% of signal
+Nr=1000;
+N=size(signal,2);
+NR=min(round(N*R),Nr); % At most 50 points
+for i=1:size(signal,1)
+    signal1(i,:)=2*signal(i,1)-flipud(signal(i,2:NR+1));  % maintain continuity in level and slope
+    signal2(i,:)=2*signal(i,end)-flipud(signal(i,end-NR:end-1));
 end
-u=0;   
+signal=[signal1,signal,signal2];
+% Do filtering
+sz_extended=size(signal);
+y=zeros(sz_original);
+z=zeros(sz_extended);
+for i=1:sz_original(1)
+    z(i,:)=filtfilt(Hd.sosMatrix,Hd.ScaleValues,signal(i,:));
+    y(i,:)=z(:,NR+1:end-NR);
+end
+u=0;    
