@@ -1,4 +1,4 @@
-function [qrs_amp_raw,qrs_i_raw,delay]=pan_tompkin_revised(ecg,fs,gr)
+function [qrs_amp_raw,qrs_i_raw,delay]=pan_tompkin_revised(ecg,fs,window,gr)
 
 %% function [qrs_amp_raw,qrs_i_raw,delay]=pan_tompkin(ecg,fs)
 % Complete implementation of Pan-Tompkins algorithm
@@ -149,7 +149,7 @@ NOISL_buf1 = [];
 THRS_buf1 = [];
 
 
-[locs,pks]=findQRSpeaks(ecg,0.2*fs);
+[locs,pks]=findQRSpeaks(ecg,window*fs);
 
 
 
