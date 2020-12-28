@@ -3,7 +3,7 @@ clear all; close all; clc;
 
 SamplingRate = 1000;
 nSamples = 40000;
-Ti = 2;
+Ti = 1;
 wq = 0.07*SamplingRate;
 ws = 0.07*SamplingRate;
 PT_window = 0.2;
@@ -11,8 +11,8 @@ RR_window = 0.5;
 
 time = linspace(0,nSamples/SamplingRate,nSamples);
 % ecg = readtable('C:\Users\Marcel\Desktop\UNI\MEE\Q2\IBES\LAB_GIT\Measurements\ECG_1_100Fs_40s.csv');
-ecg = readtable('C:\Users\Marcel\Desktop\UNI\MEE\Q2\IBES\LAB_GIT\RRMeas\1000Hz_Forced_Amnea.csv');
-% ecg = readtable('C:\Users\Marcel\Desktop\UNI\MEE\Q2\IBES\LAB_GIT\BloodPreasureMeas\1000Hz_121_70_71.csv');
+% ecg = readtable('C:\Users\Marcel\Desktop\UNI\MEE\Q2\IBES\LAB_GIT\RRMeas\1000Hz_Forced_Amnea.csv');
+ecg = readtable('C:\Users\Marcel\Desktop\UNI\MEE\Q2\IBES\LAB_GIT\BloodPreasureMeas\1000Hz_130_76_67.csv');
 ecg = table2array(ecg(:,3)).';
 % ecg_eliptic = elliptic_filter(ecg,2,30,SamplingRate);
 ecg_butterworth = butterworth_filter(ecg,2,15,SamplingRate);
@@ -74,23 +74,18 @@ S_bt_pos = S_bt_pos + floor(SamplingRate*Ti-1);
 % hold off;
 
 %% RR representation
-% close all;
+
 figure('name','Central Moments');
 RR_amps = findRR(ecg_butterworth,R_bt_pos,S_bt_pos);
-% stem(time(R_bt_pos),RR_amps,'oK');
-title("Forced and Apnea profile");xlabel("Time [s]");
-ylabel("Amplitude [A.U]");ylim([-1e7,10e7]);
-hold on;
-% figure('name','Interpolated Central Moments');
+
+title("Respiration profile");xlabel("Time [s]");ylabel("Amplitude [A.U]");
 interp = spline(R_bt_pos,RR_amps,R_bt_pos(1):1:R_bt_pos(length(R_bt_pos)));
-% 
+
 [Peak_RR,Pos_RR,delay] = pan_tompkin_revised(interp,SamplingRate,RR_window);
-% 
-plot(time(1:length(interp))+time(R_bt_pos(1)),interp,'LineWidth',1,'color','r'); 
-% hold on;
-% plot(time(Pos_RR)+time(R_bt_pos(1)),Peak_RR,'xB','LineWidth',2);
-hold off;
-% 
+
+plot(time(1:length(interp))+time(R_bt_pos(1)),interp,'LineWidth',1,'color','r');hold on;
+plot(time(Pos_RR)+time(R_bt_pos(1)),Peak_RR,'xB','LineWidth',2);hold off;
+
 RR_temp = diff(Pos_RR);
 RR_value = 60/(mean(RR_temp)/SamplingRate)
 
