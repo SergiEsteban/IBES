@@ -58,36 +58,10 @@ guidata(hObject, handles);
 clc;
 addpath(genpath(pwd));
 global DEBUG_MODE
-DEBUG_MODE = 1;
+DEBUG_MODE = 0;
 
-% -- Default Values 
-global SamplingRate mac ECGChannel PulseChannel analogChannels nSamples nSamplesSelection dataProcessed
+SetDefaultValues(handles)
 
-dataProcessed       = 0;
-SamplingRate        = 100;              % Hz
-mac                 = '98D371FD61F2';   % Bitalino MAC address
-ECGChannel          = 1;                % AnalogChannel 2
-PulseChannel        = 5;                % AnalogChannel 6 
-nSamples            = 5000;             % Samples Number
-nSamplesSelection   = 2;                % 'Number of Samples' mode
-
-handles.SamplingFrequency.Value     = 2; % 100 Hz
-handles.MACaddr.String              = mac;
-handles.NSamplesPopUp.Value         = nSamplesSelection;    % Number of Samples
-handles.NumberOfSamples.String      = num2str(nSamples);
-handles.ECGCheckBox.Value           = 1;                    % Default ECG meas
-handles.PulseCheckBox.Value         = 0;
-analogChannels                      = [1, 0];
-
-handles.CommonAxes.Visible  = 'off'; cla(handles.CommonAxes);
-handles.ECGAxes.Visible     = 'off'; cla(handles.ECGAxes);
-handles.PulseAxes.Visible   = 'off'; cla(handles.PulseAxes);
-
-handles.ExportButton.Enable = 'off';
-handles.ProcessButton.Enable= 'off';
-handles.Filter.Visible      = 'off';
-
-handles.Logger.String = "";
 LogTrace(handles, '', ['LogSession: ', datestr(now, 'dd/MM/yyyy')]);
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), 'ECG Measurement GUI initialized');
 
@@ -128,7 +102,6 @@ function MACaddr_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
 function SamplingFrequency_Callback(hObject, eventdata, handles)
 % hObject    handle to SamplingFrequency (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -154,7 +127,6 @@ function SamplingFrequency_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
 % --- Executes on selection change in NSamplesPopUp.
 function NSamplesPopUp_Callback(hObject, eventdata, handles)
 % hObject    handle to NSamplesPopUp (see GCBO)
@@ -188,7 +160,7 @@ function NSamplesPopUp_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
+% --- Executes during object creation, after setting all properties.
 function NumberOfSamples_Callback(hObject, eventdata, handles)
 % hObject    handle to NumberOfSamples (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -218,7 +190,6 @@ function NumberOfSamples_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
 % --- Executes on button press in ECGCheckBox.
 function ECGCheckBox_Callback(hObject, eventdata, handles)
 % hObject    handle to ECGCheckBox (see GCBO)
@@ -230,7 +201,6 @@ global analogChannels
 analogChannels(1) = get(hObject,'Value');
 txt = 'S'; if get(hObject,'Value') == 0, txt = 'Uns'; end
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['ECG measurement ', txt, 'elected']);    
-
 % --- Executes on button press in PulseCheckBox.
 function PulseCheckBox_Callback(hObject, eventdata, handles)
 % hObject    handle to PulseCheckBox (see GCBO)
@@ -242,7 +212,6 @@ global analogChannels
 analogChannels(2) = get(hObject,'Value');
 txt = 'S'; if get(hObject,'Value') == 0, txt = 'Uns'; end
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Pulse measurement ', txt, 'elected']);    
-
 % --- Executes on button press in StartButton.
 function StartButton_Callback(hObject, eventdata, handles)
 % hObject    handle to StartButton (see GCBO)
@@ -360,110 +329,30 @@ function ExportButton_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-global data dataResult dataHeader dataProcessed
+global dataHeader dataProcessed
 if dataProcessed == 0
-    filter = {'*.csv;*.xlsx', 'Supported file types (*.csv, *.xlsx)'};
-    [file, path, idx] = uiputfile(filter, 'Export ECG', 'ECG measurement.csv');
-    if idx == 0, return; end
-    if ~strcmp('.csv', file(end-3:end)), file = [file, '.csv']; end
-
-    dataHeader = strjoin(dataHeader,';');
-    % Write header to file
-    fid = fopen([path,file],'w'); 
-    fprintf(fid,'%s\n',dataHeader);
-    fclose(fid);
-    %write data to end of file
-    dlmwrite([path,file], data, '-append', 'delimiter',';');
-    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported data to: ', file]);
+    [resultOk, resultsFile] = ExportRawData();
+    if resultOk
+        LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported data to: ', resultsFile]);
+    else, return; 
+    end
 else
-    % Exporting filtered data
-    filter = {'*.csv;*.xlsx', 'Supported file types (*.csv, *.xlsx)'};
-    [file, path, idx] = uiputfile(filter, 'Export filtered data to CSV', 'Filtered data.csv');
-    if idx == 0, return; end
-    if ~strcmp('.csv', file(end-3:end)), file = [file, '.csv']; end
-    
-    dataHeader = strjoin(dataHeader,';');
-    % Write header to file
-    fid = fopen([path,file],'w');
-    fprintf(fid,'%s\n',dataHeader);
-    fclose(fid);
-    %write data to end of file
-    dlmwrite([path,file], dataResult, '-append', 'delimiter',';');
-    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported filtered data to: ', file]);
+    [resultOk, resultsFile] = ExportProcessedData();
+    if resultOk
+        LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported filtered data to: ', resultsFile]);
+    else, return;
+    end
     
     % Exporting figures
-    if ismember('ECG', dataHeader) 
-        fontSize = 12;
-        if ismember('Pulse', dataHeader)
-            % Obtain ECG plot
-            f_ecg = figure('units', 'normalized', 'outerposition',[0,0,1,1], 'Visible', 'off');
-            f_ecg_ax = copyobj(handles.ECGAxes, f_ecg);
-            xlabel('time [s]');
-            InSet = get(f_ecg_ax, 'TightInset');
-            set(f_ecg_ax, 'Position', [InSet(1:2), 1-InSet(1)-InSet(3), 1-InSet(2)-InSet(4)])
-
-            filter = {'*.png', 'Supported file types (*png)'};
-            [file, path, idx] = uiputfile(filter, 'Export filtered ECG to PNG', 'ECG filtered.png');
-            if idx == 0, return; end
-            if ~strcmp('.png', file(end-3:end)), file = [file, '.png']; end
-            set(f_ecg_ax,'Fontsize',fontSize)
-            saveas(f_ecg, [path,file]);
-            LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported filtered data to: ', file]);
-
-
-            % Obtain Pulse plot
-            f_pulse = figure('units', 'normalized', 'outerposition',[0,0,1,1], 'Visible', 'off');
-            f_pulse_ax = copyobj(handles.PulseAxes, f_pulse);
-            xlabel('time [s]');
-            InSet = get(f_pulse_ax, 'TightInset');
-            set(f_pulse_ax, 'Position', [InSet(1:2), 1-InSet(1)-InSet(3), 1-InSet(2)-InSet(4)])
-
-            filter = {'*.png', 'Supported file types (*png)'};
-            [file, path, idx] = uiputfile(filter, 'Export filtered Pulse to PNG', 'Pulse filtered.png');
-            if idx == 0, return; end
-            if ~strcmp('.png', file(end-3:end)), file = [file, '.png']; end
-            set(f_pulse_ax,'Fontsize',fontSize)
-            saveas(f_pulse, [path,file]);
-            LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported filtered data to: ', file]);
-        else
-             % Obtain ECG plot
-            f_ecg = figure('units', 'normalized', 'outerposition',[0,0,1,1], 'Visible', 'off');
-            f_ecg_ax = copyobj(handles.CommonAxes, f_ecg);
-            xlabel('time [s]');
-            InSet = get(f_ecg_ax, 'TightInset');
-            set(f_ecg_ax, 'Position', [InSet(1:2), 1-InSet(1)-InSet(3), 1-InSet(2)-InSet(4)])
-
-            filter = {'*.png', 'Supported file types (*png)'};
-            [file, path, idx] = uiputfile(filter, 'Export filtered ECG to PNG', 'ECG filtered.png');
-            if idx == 0, return; end
-            if ~strcmp('.png', file(end-3:end)), file = [file, '.png']; end
-            set(f_ecg_ax,'Fontsize',fontSize)
-            saveas(f_ecg, [path,file]);
-            LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported filtered data to: ', file]);
-        end
-    else
-        % Obtain Pulse plot
-        f_pulse = figure('units', 'normalized', 'outerposition',[0,0,1,1], 'Visible', 'off');
-        f_pulse_ax = copyobj(handles.CommonAxes, f_pulse);
-        xlabel('time [s]');
-        InSet = get(f_pulse_ax, 'TightInset');
-        set(f_pulse_ax, 'Position', [InSet(1:2), 1-InSet(1)-InSet(3), 1-InSet(2)-InSet(4)])
-
-        filter = {'*.png', 'Supported file types (*png)'};
-        [file, path, idx] = uiputfile(filter, 'Export filtered Pulse to PNG', 'Pulse filtered.png');
-        if idx == 0, return; end
-        if ~strcmp('.png', file(end-3:end)), file = [file, '.png']; end
-        set(f_pulse_ax,'Fontsize',fontSize)
-        saveas(f_pulse, [path,file]);
-        LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Exported filtered data to: ', file]);
-    end       
-    
+    if ExportFigures(handles), LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['All plots correctly saved']); end
+               
     % Exporting signals features
+    if ExportProcessedResults(resultsFile), LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['All plots correctly saved']); end
     %%%%%%%%%%%%%%%%% ------------------ %%%%%%%%%%%%%%%%%
     %%% TODO: create a .txt file with signal features!
+        
+    
 
-    % Clear processed variables
-    dataProcessed = 0;
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%% Importing Features %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -641,10 +530,6 @@ ExtractSignalFeatures(handles);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%% Other functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function LogTrace(handles, ts, trace)
-txt         = cellstr(get(handles.Logger,'String'));
-txt{end+1,1}  = [ts, ' ', trace];
-set(handles.Logger,'String', txt);
 
 function PlotCurrentData(handles)
 % Plot channel acquired
