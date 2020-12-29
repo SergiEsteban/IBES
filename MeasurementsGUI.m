@@ -559,7 +559,7 @@ if ismember('ECG',dataHeader)
     end
      dataResult(:,strcmp('ECG',dataHeader)) = ecgResult(:);
     % QRS detection algorithm for ECG
-    [R_amp,R_pos,~]     = pan_tompkin_revised(ecgResult(delay:end),SamplingRate);
+    [R_amp,R_pos,~]     = pan_tompkin_revised(ecgResult(delay:end),SamplingRate,0.2);
     R_pos               = R_pos + delay-1;
     [Q_pos, S_Pos]       = find_Q_S(ecgResult,R_pos,wq,ws);
     ecgQ = time(Q_pos); ecgR = time(R_pos); ecgS = time(S_Pos);
@@ -577,7 +577,7 @@ if ismember('Pulse',dataHeader)
     end
      dataResult(:,strcmp('Pulse',dataHeader)) = pulseResult(:);
     % Peak detector of Pulse signals
-    [Pulse_amp,Pulse_pos,~]     = pan_tompkin_revised(pulseResult(delay:end),SamplingRate);    
+    [Pulse_amp,Pulse_pos,~]     = pan_tompkin_revised(pulseResult(delay:end),SamplingRate,0.2);    
     Pulse_pos                   = Pulse_pos + delay-1; 
     pulsePeak = time(Pulse_pos);
 end
@@ -729,7 +729,15 @@ if ismember('ECG', dataHeader) && ismember('Pulse', dataHeader)
     if length(Rs) ~= length(Ps), LogTrace(handles, datestr(now,'[hh:mm:ss]'), 'Pulse Peaks and ECG R Peaks array have different lengths'); return;end
     arrivalTime = abs(Ps-Rs);
     arrivalTimeAvg = mean(arrivalTime);
+    DBP0 = 71; SBP0 = 113; PTT0 = 70; PTT = pulseHeartRate20sAvg*60; A = 1;
+    DBP = (SBP0/3) + 2*DBP0/3 + A*log(PTT0/PTT) - (SBP0-DBP0)*PTT0^2/(3*PTT^2)
+    SBP = DBP + (SBP0-DBP0)*(PTT0)^2/(PTT)^2
+
     LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Arrival time average calculated from ECG and Pulse (',num2str(arrivalTimeAvg*1e3), ' ms)']);
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Diastolic Blood pressure (DBP) : ',num2str(DBP), ' mmHg']);
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Systolic Blood pressure (SBP) : ',num2str(SBP), ' mmHg']);
+    
+    
     
 end
 handles.ExportButton.Enable = 'on';
