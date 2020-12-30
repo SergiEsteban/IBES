@@ -29,6 +29,12 @@ handles.ExportButton.Enable = 'off';
 handles.ProcessButton.Enable= 'off';
 handles.Filter.Visible      = 'off';
 
+handles.RRBPPanel.Visible = 'off';
+handles.ECGPulsePanel.Visible = 'on';
+
+handles.tab1.Enable = 'off';
+handles.tab2.Enable = 'off';
+
 handles.Logger.String = "";
 
 end

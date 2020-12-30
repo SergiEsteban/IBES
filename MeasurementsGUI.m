@@ -367,6 +367,13 @@ filter = {'*.csv;*.xlsx', 'Supported file types (*.csv, *.xlsx)'};
 if indx == 0, return; end
 LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Imported data from: ', file]);
 
+handles.tab1.Enable = 'off';
+handles.tab2.Enable = 'off';
+cla(handles.RRAxes);cla(handles.CommonRRBP);cla(handles.BPAxes);
+handles.RRBPPanel.Visible = 'off';
+handles.ECGPulsePanel.Visible = 'on';
+
+
 global data dataHeader
 dataTable = readtable([path,file]);
 data = dataTable{:,:};
@@ -420,7 +427,7 @@ LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Preparing data to process']);
 if and(size(data,2)~=length(dataHeader), length(dataHeader)<3), LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Data not processed because an error']); end
 
 global ecgResult pulseResult  time
-global ecgQ ecgR ecgS
+global ecgQ ecgR ecgS R_pos S_Pos
 global pulsePeak
 ecgResult = []; pulseResult = []; time = [];
 ecgQ = []; ecgR = []; ecgS = [];
@@ -436,6 +443,8 @@ if ismember('time', dataHeader), time = data(:,strcmp('time', dataHeader)); time
 
 selectedFilter = handles.Filter.Value; % 1: None, 2: Butterworth, 3: Eliptic
 if ismember('ECG',dataHeader)
+    handles.tab1.Enable = 'on';
+    handles.tab2.Enable = 'on';
     ecgResult = data(:,strcmp('ECG',dataHeader)); ecgResult = ecgResult(:)';
     LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['ECG data found. Processing...']);
     % Filtered data
@@ -478,9 +487,9 @@ if ~isempty(ecgResult)
     if ~isempty(pulseResult)
         % Both signals are displayed
         cla(handles.CommonAxes); cla(handles.ECGAxes); cla(handles.PulseAxes);
-        handles.CommonAxes.Visible = 'off'; handles.ECGAxes.Visible = 'on'; handles.Pulse.Visible = 'on';
+        handles.CommonAxes.Visible = 'off'; handles.ECGAxes.Visible = 'on'; handles.PulseAxes.Visible = 'on';
         axes(handles.ECGAxes);
-        plot(time,  (ecgResult)); grid on; hold on; ylabel('ECG processed');
+        plot(time,  (ecgResult)); grid on; hold on; ylabel('ECG processed');xlabel('Time [s]');
         title('Processed data');
         plot(time(R_pos), (ecgResult(R_pos)),'vr'); plot(time(Q_pos), (ecgResult(Q_pos)),'>b'); plot(time(S_Pos), (ecgResult(S_Pos)),'<b');
         ymin = min( (ecgResult(delay:floor(end-SamplingRate*5)))); ymax = max( (ecgResult(delay:floor(end-SamplingRate*5))));
@@ -490,7 +499,7 @@ if ~isempty(ecgResult)
         legend('ECG filtered','R peaks','Q peaks','S peaks');
         LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['ECG plotted']);
         axes(handles.PulseAxes);
-        plot(time,  (pulseResult)); grid on; hold on; xlabel('time [s]'); ylabel('Pulse processed');
+        plot(time,  (pulseResult)); grid on; hold on; xlabel('Time [s]'); ylabel('Pulse processed');
         plot(time(Pulse_pos), (pulseResult(Pulse_pos)),'vr');
         ymin = min( (pulseResult(delay:floor(end-SamplingRate*5)))); ymax = max( (pulseResult(delay:floor(end-SamplingRate*5))));
         ymin = ymin-abs(ymax-ymin)*0.1; ymax = ymax+abs(ymax-ymin)*0.1;
@@ -527,40 +536,10 @@ else
 end
 % Extracting signal features
 ExtractSignalFeatures(handles);
+PlotSignalFeatures(handles);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%% Other functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-function PlotCurrentData(handles)
-% Plot channel acquired
-cla(handles.CommonAxes); cla(handles.ECGAxes); cla(handles.PulseAxes);
-global data dataHeader SamplingRate 
-
-time = data(:,strcmp(dataHeader,'time'));
-SamplingRate = data(1, strcmp(dataHeader,'SamplingFrequency'));
-if length(dataHeader) > 3
-   LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting ECG and Pulse waves']);
-   handles.CommonAxes.Visible = 'off'; handles.ECGAxes.Visible = 'on'; handles.PulseAxes.Visible = 'on';
-   axes(handles.ECGAxes);
-   ecg = data(:,strcmp(dataHeader,'ECG')); 
-   pulse = data(:,strcmp(dataHeader,'Pulse')); 
-   plot(time(:),  (ecg(:))); grid on; ylabel('ECG meas. ');
-   title(['Imported Data (SamplingFrequency: ', num2str(SamplingRate),' Hz)']);
-   axes(handles.PulseAxes);
-   plot(time(:),  (pulse(:))); grid on; ylabel('Pulse meas. '); xlabel('time [s]');
-elseif length(dataHeader) >2
-    handles.CommonAxes.Visible = 'on'; handles.ECGAxes.Visible = 'off'; handles.PulseAxes.Visible = 'off';
-    axes(handles.CommonAxes);    
-    if ismember('ECG',dataHeader)     
-        LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting ECG wave']);           
-        ecg = data(:,strcmp(dataHeader,'ECG'));
-        plot(time(:),  (ecg(:))); grid on; xlabel('time [s]'); ylabel('ECG meas. ');
-    else
-        LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Plotting Pulse wave']);            
-        pulse = data(:,strcmp(dataHeader,'Pulse'));
-        plot(time(:),  (pulse(:))); grid on; xlabel('time [s]'); ylabel('Pulse meas. ');
-    end
-end  
 function ExtractSignalFeatures(handles)
 
 global dataHeader SamplingRate
@@ -571,7 +550,7 @@ global pulsePeak
 
 global ecgHeartRate ecgHeartRate20sAvg
 global pulseHeartRate pulseHeartRate20sAvg
-global arrivalTime arrivalTimeAvg
+global arrivalTime arrivalTimeAvg SBP DBP
 ecgHeartRate    = []; ecgHeartRate20sAvg = -1;
 pulseHeartRate  = []; pulseHeartRate20sAvg = -1;
 arrivalTime     = []; arrivalTimeAvg = -1;
@@ -607,23 +586,24 @@ if ismember('Pulse', dataHeader)
     pulseHeartRate20sAvg = abs( (nRf-nRi)/(tf-ti) ); 
     LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Beat rate average calculated from Pulse (',num2str(pulseHeartRate20sAvg), ' bps)']);
 end
-% Arrival time
+% Arrival time and Blood Pressure
 if ismember('ECG', dataHeader) && ismember('Pulse', dataHeader)
     Rs = ecgR(ecgR<pulsePeak(end));
     Ps = pulsePeak(pulsePeak>ecgR(1));    
     if length(Rs) ~= length(Ps), LogTrace(handles, datestr(now,'[hh:mm:ss]'), 'Pulse Peaks and ECG R Peaks array have different lengths'); return;end
     arrivalTime = abs(Ps-Rs);
     arrivalTimeAvg = mean(arrivalTime);
-    DBP0 = 71; SBP0 = 113; PTT0 = 70; PTT = pulseHeartRate20sAvg*60; A = 1;
-    DBP = (SBP0/3) + 2*DBP0/3 + A*log(PTT0/PTT) - (SBP0-DBP0)*PTT0^2/(3*PTT^2)
-    SBP = DBP + (SBP0-DBP0)*(PTT0)^2/(PTT)^2
-
-    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Arrival time average calculated from ECG and Pulse (',num2str(arrivalTimeAvg*1e3), ' ms)']);
-    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Diastolic Blood pressure (DBP) : ',num2str(DBP), ' mmHg']);
-    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Systolic Blood pressure (SBP) : ',num2str(SBP), ' mmHg']);
     
-    
-    
+    DBP0 = 77; SBP0 = 124; PTT0 = 0.3; A = 1;
+    for i = 1:length(arrivalTime)
+        PTT = arrivalTime(i);
+        DBP(i) = (SBP0/3) + 2*DBP0/3 + A*log(PTT0/PTT) - (SBP0-DBP0)*PTT0^2/(3*PTT^2);
+        SBP(i) = DBP(i) + (SBP0-DBP0)*(PTT0)^2/(PTT)^2;
+    end
+    DBPavg = mean(DBP);
+    SBPavg = mean(SBP);
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Diastolic blood pressure (DBP):',num2str(DBPavg),' mmHg']);
+    LogTrace(handles, datestr(now,'[hh:mm:ss]'), ['Systolic blood pressure (SBP):',num2str(SBPavg),' mmHg']);
 end
 handles.ExportButton.Enable = 'on';
 global dataProcessed
@@ -637,3 +617,18 @@ function figure1_DeleteFcn(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 clc; clear all; close all;
+
+
+% --- Executes on button press in tab1.
+function tab1_Callback(hObject, eventdata, handles)
+handles.RRBPPanel.Visible = 'off';
+handles.ECGPulsePanel.Visible = 'on';
+
+
+
+
+% --- Executes on button press in tab2.
+function tab2_Callback(hObject, eventdata, handles)
+handles.RRBPPanel.Visible = 'on';
+handles.ECGPulsePanel.Visible = 'off';
+

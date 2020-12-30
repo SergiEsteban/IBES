@@ -10,16 +10,16 @@ PT_window = 0.2;
 RR_window = 0.5;
 
 time = linspace(0,nSamples/SamplingRate,nSamples);
-% ecg = readtable('C:\Users\Marcel\Desktop\UNI\MEE\Q2\IBES\LAB_GIT\Measurements\ECG_1_100Fs_40s.csv');
+file = readtable('C:\Users\Marcel\Desktop\UNI\MEE\Q2\IBES\LAB_GIT\Measurements\ECG_Pulse_2_1000Fs_40s.csv');
 % ecg = readtable('C:\Users\Marcel\Desktop\UNI\MEE\Q2\IBES\LAB_GIT\RRMeas\1000Hz_Forced_Amnea.csv');
-ecg = readtable('C:\Users\Marcel\Desktop\UNI\MEE\Q2\IBES\LAB_GIT\BloodPreasureMeas\1000Hz_130_76_67.csv');
-ecg = table2array(ecg(:,3)).';
+% ecg = readtable('C:\Users\Marcel\Desktop\UNI\MEE\Q2\IBES\LAB_GIT\BloodPreasureMeas\1000Hz_130_76_67.csv');
+ecg = table2array(file(:,3)).';
 % ecg_eliptic = elliptic_filter(ecg,2,30,SamplingRate);
 ecg_butterworth = butterworth_filter(ecg,2,15,SamplingRate);
     
 % pulse = csvread('Pulse_1_100Fs_40s.csv');
-pulse = readtable('C:\Users\Marcel\Desktop\UNI\MEE\Q2\IBES\LAB_GIT\Measurements\Pulse_1_100Fs_40s.csv');
-pulse = table2array(pulse(:,3)).';
+% pulse = readtable('C:\Users\Marcel\Desktop\UNI\MEE\Q2\IBES\LAB_GIT\Measurements\Pulse_1_100Fs_40s.csv');
+pulse = table2array(file(:,4)).';
 % pulse_eliptic = elliptic_filter(pulse,2,20,SamplingRate);
 pulse_butterworth = butterworth_filter(pulse,2,20,SamplingRate);
 
@@ -35,9 +35,9 @@ pulse_butterworth = butterworth_filter(pulse,2,20,SamplingRate);
 %% Peak detector of Pulse signals
 % [Pulse_amp,Pulse_pos,delay] = pan_tompkin_revised(pulse,SamplingRate,PT_window);
 % [Pulse_el_amp,Pulse_el_pos,delay] = pan_tompkin_revised(pulse_eliptic(floor(SamplingRate*Ti):end),SamplingRate,PT_window);
-% [Pulse_bt_amp,Pulse_bt_pos,delay] = pan_tompkin_revised(pulse_butterworth(floor(SamplingRate*Ti):end),SamplingRate,PT_window);
+[Pulse_bt_amp,Pulse_bt_pos,delay] = pan_tompkin_revised(pulse_butterworth(floor(SamplingRate*Ti):end),SamplingRate,PT_window);
 % Pulse_el_pos = Pulse_el_pos + floor(SamplingRate*Ti-1);
-% Pulse_bt_pos = Pulse_bt_pos + floor(SamplingRate*Ti-1);
+Pulse_bt_pos = Pulse_bt_pos + floor(SamplingRate*Ti-1);
 
 % TEST COMBINED
 % [QPulse_pos] = find_Q_S(pulse_butterworth(floor(SamplingRate*Ti):end),Pulse_bt_pos-floor(SamplingRate*Ti-1),wq*2,ws);
@@ -69,9 +69,9 @@ S_bt_pos = S_bt_pos + floor(SamplingRate*Ti-1);
 % plot(time(Pulse_el_pos),Pulse_el_amp,'xR','LineWidth',2); hold on;
 % hold off;
 % 
-% figure('name','Butterworth filtered pulse');plot(time,pulse_butterworth);ylabel("Amplitude");xlabel("Time [s]");title('Butterworth pulse');hold on;
-% plot(time(Pulse_bt_pos),Pulse_bt_amp,'xR','LineWidth',2); hold on;
-% hold off;
+figure('name','Butterworth filtered pulse');plot(time,pulse_butterworth);ylabel("Amplitude");xlabel("Time [s]");title('Butterworth pulse');hold on;
+plot(time(Pulse_bt_pos),Pulse_bt_amp,'xR','LineWidth',2); hold on;
+hold off;
 
 %% RR representation
 
@@ -146,26 +146,29 @@ hold off;
 % % br_el_pulse = 1./diff(time(Pulse_el_pos));
 % % br_bt_pulse = 1./diff(time(Pulse_bt_pos));
 % 
-% %% Arrival time
-% if(size(Pulse_bt_pos,2)~=size(R_bt_pos,2))
-%     if(Pulse_bt_pos(1)<R_bt_pos)
-%         Pulse_bt_pos = Pulse_bt_pos(2:end);
-%     else
-%         R_bt_pos = R_bt_pos(1:end-1);
-%     end 
-% elseif(Pulse_bt_pos(1)<R_bt_pos)
-%     Pulse_bt_pos = Pulse_bt_pos(2:end);
-%     R_bt_pos = R_bt_pos(1:end-1);
-% end
-% 
-% AT = time(Pulse_bt_pos-R_bt_pos);
-% PTT_calc = mean(AT)
-% 
-% %% Blood Pressure estimation
-% 
-% DBP0 = 124; SBP0 = 77; PTT0 = 68; PTT = HR;
-% A = 1;
-% 
-% DBP = (SBP0/3) + 2*DBP0/3 + A*log(PTT0/PTT) - (SBP0-DBP0)*PTT0^2/(3*PTT^2)
-% SBP = DBP + (SBP0-DBP0)*(PTT0)^2/(PTT)^2
-% 
+%% Arrival time
+if(size(Pulse_bt_pos,2)~=size(R_bt_pos,2))
+    if(Pulse_bt_pos(1)<R_bt_pos)
+        Pulse_bt_pos = Pulse_bt_pos(3:end);
+    else
+        R_bt_pos = R_bt_pos(1:end-1);
+    end 
+elseif(Pulse_bt_pos(1)<R_bt_pos)
+    Pulse_bt_pos = Pulse_bt_pos(2:end);
+    R_bt_pos = R_bt_pos(1:end-1);
+end
+
+AT = time(Pulse_bt_pos-R_bt_pos);
+PTT_calc = mean(AT)
+
+%% Blood Pressure estimation
+
+DBP0 = 77; SBP0 = 124; PTT0 = 0.3; A = 1;
+for i = 1:length(AT)
+    PTT = AT(i);
+
+    DBP(i) = (SBP0/3) + 2*DBP0/3 + A*log(PTT0/PTT) - (SBP0-DBP0)*PTT0^2/(3*PTT^2);
+    SBP(i) = DBP(i) + (SBP0-DBP0)*(PTT0)^2/(PTT)^2;
+end
+
+
