@@ -1,4 +1,7 @@
 function y = elliptic_filter(signal,lowF,highF,Fs)
+
+signal = signal(:)';
+
 Fstop1 = lowF-1;       % First Stopband Frequency
 Fpass1 = lowF;       % First Passband Frequency
 Fpass2 = highF;      % Second Passband Frequency
